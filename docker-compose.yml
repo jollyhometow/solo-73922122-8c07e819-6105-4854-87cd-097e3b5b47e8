@@ -1,0 +1,46 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: seismic
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d seismic"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  web:
+    build: .
+    command: uvicorn app.web:app --host 0.0.0.0 --port 8000
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/seismic
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  worker1:
+    build: .
+    command: python -m app.worker worker1
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/seismic
+    depends_on:
+      db:
+        condition: service_healthy
+
+  worker2:
+    build: .
+    command: python -m app.worker worker2
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/seismic
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
